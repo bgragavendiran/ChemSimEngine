@@ -48,14 +48,18 @@ You MUST return the **full molecular structure**, in this exact format:
 
 {
   "reactants": [MolecularStructure],
-  "products": [MolecularStructure]
+  "products": [MolecularStructure],
+  "reaction": "Full balanced chemical formula of the overall reaction",
+  "reactionDescription": "Short natural language description of the reaction process"
 }
 
 Each MolecularStructure is a dictionary:
 {
   "name": "MoleculeName",
+  "formula": "H2O",
+  "description": "A water molecule consisting of two hydrogen and one oxygen atom.",
   "atoms": [
-    { "id": "a1", "element": "C", "position": [0.0, 0.0, 0.0] },
+    { "id": "a1", "element": "C"},
     ...
   ],
   "bonds": [
@@ -70,9 +74,11 @@ Each MolecularStructure is a dictionary:
   "reactants": [
     {
       "name": "Ethanol",
+      "formula": "H2O",
+      "description": "A water molecule consisting of two hydrogen and one oxygen atom.",
       "atoms": [
-        { "id": "a1", "element": "C", "position": [0.0, 0.0, 0.0] },
-        { "id": "a2", "element": "O", "position": [0.2, 0.1, 0.0] }
+        { "id": "a1", "element": "C","color": "#FF0000" },
+        { "id": "a2", "element": "O","color": "#FFFFFF" }
       ],
       "bonds": [
         { "from_atom": "a1", "to_atom": "a2" }
@@ -82,15 +88,19 @@ Each MolecularStructure is a dictionary:
   "products": [
     {
       "name": "Acetaldehyde",
+      "formula": "",
+      "description": "",
       "atoms": [
-        { "id": "p1", "element": "C", "position": [1.0, 0.0, 0.0] },
-        { "id": "p2", "element": "O", "position": [1.2, 0.1, 0.0] }
+        { "id": "p1", "element": "C","color": "#FF0000" },
+        { "id": "p2", "element": "O","color": "#FFFFFF"}
       ],
       "bonds": [
         { "from_atom": "p1", "to_atom": "p2" }
       ]
     }
-  ]
+  ],
+  "reaction": "C2H6O + [O] → C2H4O + H2O",
+  "reactionDescription": "Ethanol is oxidized to form acetaldehyde and water."
 }
 
 Respond only with the JSON content as above.
@@ -155,22 +165,41 @@ def query_gpt_and_store_if_missing(prompt: str):
         products.append(compound)
 
     firebase_reactions.child(reaction_id).set({
-        "prompt": prompt,
-        "reactants": reactant_names,
-        "products": product_names
+    "prompt": prompt,
+    "reactants": reactants,
+    "products": products,
+    "reaction": parsed.get("reaction", ""),
+    "reactionDescription": parsed.get("reactionDescription", "")
     })
 
+
     return {
-        "reaction_id": reaction_id,
-        "reactants": reactants,
-        "products": products
+          "reaction_id": reaction_id,
+          "reactants": reactants,
+          "products": products,
+          "reaction": parsed.get("reaction", ""),
+          "reactionDescription": parsed.get("reactionDescription", "")
     }
+
 
 # Parser Helper
 def parse_molecular_structure(data):
-    atoms = [Atom(id=a["id"], element=a["element"], position=tuple(a["position"])) for a in data["atoms"]]
+    atoms = [Atom(
+        id=a["id"],
+        element=a["element"],
+        color=a.get("color", "#808080")
+    ) for a in data["atoms"]]
+
     bonds = [Bond(from_atom=b["from_atom"], to_atom=b["to_atom"]) for b in data["bonds"]]
-    return MolecularStructure(name=data["name"], atoms=atoms, bonds=bonds)
+
+    return MolecularStructure(
+        name=data["name"],
+        atoms=atoms,
+        bonds=bonds,
+        formula=data.get("formula", ""),
+        description=data.get("description", "")
+    )
+
 
 # Main Reaction Endpoint
 @app.post("/get-reaction")

@@ -3,10 +3,11 @@ from pathlib import Path
 import os
 import json
 import carb
-from .Molecular import ELEMENT_COLORS
 from .chem_api import get_molecule_structure
 from .usd_writer import write_usd_from_reaction
 from pxr import UsdGeom, Sdf
+from typing import Dict
+
 EXT_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_OUTPUT_DIR = os.path.join(EXT_DIR, "output_json")
 USD_OUTPUT_DIR = os.path.join(EXT_DIR, "output_usd")
@@ -18,24 +19,18 @@ log_error = carb.log_error
 
 
 class ChemSimUI:
-    ELEMENT_TO_COLOR = {
-        "H": "white",
-        "C": "black",
-        "O": "red",
-        "N": "blue",
-        "Cl": "green",
-        "Na": "purple",
-        "K": "orange",
-        "S": "yellow",
-        "P": "brown",
-        "Fe": "gray",
-    }
     def __init__(self):
         self.prompt_input = None
+
+        self.json_model = None
+        self.usd_model = None
+
         self.usd_file_list = None
         self.json_file_list = None
-        self.overlay_label = None
-        self._overlay_window = None
+        self.overlay_window = None
+        self.overlay_formula_label = None
+        self.overlay_description_label = None
+        self.overlay_process_label = None
 
 
 
@@ -105,7 +100,22 @@ class ChemSimUI:
 
             reaction_text = f"Reactants: {', '.join(reactants)} → Products: {', '.join(products)}"
 
-            self._show_reaction_summary_overlay(reaction_text)
+            # build element → color map dynamically from parsed atoms
+            element_color_map = {}
+            for compound in reaction_data["reactants"] + reaction_data["products"]:
+                for atom in compound.get("atoms", []):
+                    element_color_map[atom["element"]] = atom.get("color", "#888888")
+
+            reaction_formula = reaction_data.get("reaction", "No formula provided")
+            reaction_description = reaction_data.get("reactionDescription", "No description available")
+            reaction_process = f"This reaction involves {', '.join(reactants)} converting into {', '.join(products)}."
+
+            self._show_reaction_summary_overlay(
+                formula=reaction_formula,
+                description=reaction_description,
+                process=reaction_process
+            )
+
             stage.GetRootLayer().Save()
             log_info("[ChemSimUI] ✅ Saved stage after adding UI, Camera, Legend.")
 
@@ -144,116 +154,32 @@ class ChemSimUI:
         return table.get(name, (0.5, 0.5, 0.5))
 
 
-    def _show_reaction_summary_overlay(self, text: str):
-        log_info("[ChemSimUI] 🧪 Forcing visible color in UI overlay")
+    def _show_reaction_summary_overlay(self, formula: str, description: str, process: str):
+        log_info("[ChemSimUI] Showing floating overlay with updated reaction info")
 
-        if self.overlay_label is None:
-            self._overlay_window = ui.Window("Reaction Summary", width=500, height=120)
-            frame = self._overlay_window.frame
+        if self.overlay_window is None:
+            self.overlay_window = ui.Window("Reaction Summary", width=600, height=300)
+            frame = self.overlay_window.frame
 
             with frame:
                 with ui.VStack(spacing=10):
-                    self.overlay_label = ui.Label(
-                        f"Reactants: {text}",
-                        style={"color": "white", "font_size": 20}
+                    self.overlay_formula_label = ui.Label(
+                        formula,
+                        style={"color": "yellow", "font_size": 24, "alignment": ui.Alignment.CENTER}
                     )
-
-                    ui.Label("Color Test:", style={"color": "white", "font_size": 16})
-
-                    bright_colors = {
-                        "H": (1.0, 1.0, 1.0),
-                        "C": (0.1, 0.1, 0.1),
-                        "O": (1.0, 0.0, 0.0),
-                        "N": (0.0, 0.4, 1.0),
-                        "Cl": (0.1, 1.0, 0.2),
-                        "Na": (0.6, 0.2, 1.0),
-                        "K": (1.0, 0.6, 0.2),
-                        "S": (1.0, 1.0, 0.1),
-                        "P": (0.8, 0.4, 0.1),
-                        "Fe": (0.6, 0.6, 0.6),
-                    }
-
-                    for elem, rgb in bright_colors.items():
-                        with ui.HStack(height=20):
-                            ui.Frame(
-                                width=18,
-                                height=18,
-                                style={
-                                    "background_color": (*rgb, 1.0),
-                                    "border_radius": 9,
-                                    "margin_right": 10,
-                                    "padding": 0,
-                                    "border_width": 0,
-                                }
-                            )
-
-                            ui.Label(f"{elem}", style={"color": "white", "font_size": 16})
-
+                    self.overlay_description_label = ui.Label(
+                        description,
+                        style={"color": "white", "font_size": 18, "word_wrap": True}
+                    )
+                    self.overlay_process_label = ui.Label(
+                        process,
+                        style={"color": "white", "font_size": 16, "word_wrap": True}
+                    )
         else:
-            self.overlay_label.text = f"Reactants: {text}"
-
-
-
-
-
-
-
-    def _add_reaction_summary_to_world(self, stage, reactants, products):
-        from pxr import Gf
-
-        log_info("[ChemSimUI] ➡️ Adding Reaction Summary Marker (Visible Cube) to World")
-
-        summary_xform = UsdGeom.Xform.Define(stage, "/World/UI/ReactionSummaryXform")
-        UsdGeom.Xformable(summary_xform).AddTranslateOp().Set(Gf.Vec3f(0, 8, 0))
-
-        cube = UsdGeom.Cube.Define(stage, "/World/UI/ReactionSummaryXform/ReactionCube")
-        cube.CreateSizeAttr(1.5)
-        UsdGeom.Xformable(cube).AddTranslateOp().Set(Gf.Vec3f(0, 0, 0))
-        cube.CreateDisplayColorAttr().Set([(0.8, 0.2, 0.2)])  # Red color
-
-        log_info(f"[ChemSimUI] ✅ Reaction Summary Cube Added.")
-
-    def _add_camera_pointing_to_center(self, stage):
-        from pxr import Gf
-
-        log_info("[ChemSimUI] ➡️ Adding Camera to World")
-
-        cam_xform = UsdGeom.Xform.Define(stage, "/World/UI/CameraXform")
-        xformable = UsdGeom.Xformable(cam_xform)
-        xformable.AddTranslateOp().Set(Gf.Vec3f(0, 10, 20))  # Camera is high and away
-
-        cam = UsdGeom.Camera.Define(stage, "/World/UI/CameraXform/SceneCamera")
-        cam.CreateFocusDistanceAttr(10.0)
-        cam.CreateFocalLengthAttr(50.0)
-        cam.CreateHorizontalApertureAttr(20.955)  # default in mm
-
-        log_info("[ChemSimUI] ✅ Camera Added.")
-
-    def _add_color_legend(self, stage, elements, base_position=(0, 5, -5)):
-        log_info("[ChemSimUI] ➡️ Adding Color Legend to World")
-
-        legend_xform = UsdGeom.Xform.Define(stage, "/World/UI/LegendXform")
-        UsdGeom.Xformable(legend_xform).AddTranslateOp().Set(Gf.Vec3f(*base_position))
-
-        for i, elem in enumerate(sorted(elements)):
-            color = ELEMENT_COLORS.get(elem, "gray")
-            x_offset = i * 3.0  # more spacing now that things are big
-
-            # 🌐 Sphere
-            sphere = UsdGeom.Sphere.Define(stage, f"/World/UI/LegendXform/{elem}")
-            sphere.CreateRadiusAttr(0.5)
-            UsdGeom.Xformable(sphere).AddTranslateOp().Set(Gf.Vec3f(x_offset, 0, 0))
-            sphere.CreateDisplayColorAttr().Set([self.color_rgb(color)])
-
-            # 🔤 Label
-            label = UsdGeom.Text.Define(stage, f"/World/UI/LegendXform/{elem}_Label")
-            label.CreateTextAttr(elem)
-            label.CreateFontSizeAttr(150.0)
-            UsdGeom.Xformable(label).AddTranslateOp().Set(Gf.Vec3f(x_offset, 1.0, 0))  # above sphere
-
-        log_info("[ChemSimUI] ✅ Color Legend Added.")
-
-
+            # Update existing window content
+            self.overlay_formula_label.text = formula
+            self.overlay_description_label.text = description
+            self.overlay_process_label.text = process
 
 
     def build_ui(self):
@@ -273,6 +199,7 @@ class ChemSimUI:
             self.usd_file_list = ui.ComboBox(0, *self._get_usd_files())
 
             ui.Button("Import Selected USD", clicked_fn=self._import_usd_file)
+
 
     def _get_json_files(self):
         try:
@@ -308,7 +235,11 @@ class ChemSimUI:
                 json.dump(result, f, indent=2)
 
             log_info(f"[ChemSimUI] Wrote JSON output to: {output_path}")
-            self.json_file_list.set_value_items(self._get_json_files())
+
+            # 🛠 Instead of set_item_list, recreate ComboBox
+            new_items = self._get_json_files()
+            if new_items :
+                self.json_model.set_value(new_items[0])
 
         except Exception as e:
             log_error(f"[ChemSimUI] Error in GPT backend call: {e}")
