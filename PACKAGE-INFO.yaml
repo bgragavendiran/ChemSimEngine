@@ -1,0 +1,13 @@
+Package: kit-sdk-public
+Version: feature.107.0+b53685a
+Maintainers: null
+Description: null
+SWIPAT NvBug: null
+Repository: https://gitlab-master.nvidia.com/omniverse/kit-apps/kit-sdk-public.git
+License Type: NVIDIA
+Branch: feature_107.0
+Commit: 7e267646dae278a39f7e99d4fbf4351b859a634c
+Time: Wed Mar 19 21:35:32 2025
+Builder Name: shedwards-wintest
+Packman Version: '7.27'
+Packagemaker Version: 1.74.0

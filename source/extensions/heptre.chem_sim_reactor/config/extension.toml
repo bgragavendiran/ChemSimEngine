@@ -1,0 +1,37 @@
+[package]
+title = "chem_sim_reactor"
+version = "0.1.0"
+description = "The simplest python extension example. Use it as a starting point for your extensions."
+category = "Example"
+changelog = "docs/CHANGELOG.md"
+icon = "data/icon.png"
+keywords = ["kit", "example", "extension"]
+preview_image = "data/preview.png"
+readme = "docs/README.md"
+repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"
+
+[dependencies]
+"omni.usd" = {}
+"omni.physx" = {}
+"omni.kit.viewport.window" = {}
+"omni.kit.window.console" = {}
+"omni.kit.window.extensions" = {}
+
+[settings]
+
+[[python.module]]
+name = "heptre.chem_sim_reactor"
+
+[python.pip]
+packages = ["openai==0.27.9", "firebase-admin", "python-dotenv","pydantic==1.10.13"]
+
+
+[documentation]
+pages = [
+    "docs/Overview.md",
+    "docs/CHANGELOG.md",
+]
+
+[[test]]
+dependencies = []
+args = []

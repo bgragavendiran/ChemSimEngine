@@ -1,0 +1,81 @@
+[package]
+title = "Chemical Reaction Simulation Engine Streaming"
+version = "0.0.1"
+description = "Configuration for streaming deployments of Chemical Reaction Simulation Engine"
+keywords = ["experience", "app", "dev", "streaming"]
+template_name = "omni.streaming_configuration"
+
+[dependencies]
+"chem_api_engine" = {}  # Application kit file
+"omni.kit.livestream.webrtc" = {}  # Livestream extension
+
+[settings.app]
+fastShutdown = true
+name = "Chemical Reaction Simulation Engine Streaming"
+ovc_deployment = true
+renderer.skipWhileMinimized = true
+renderer.resolution.height = 1080
+renderer.resolution.width = 1920
+vsync = false
+window.scaleToMonitor = true
+window.showStartup = false
+window.height = 1080
+window.width = 1920
+
+[settings]
+rtx.post.aa.op = 3
+rtx.verifyDriverVersion.enabled = false
+rtx-transient.dlssg.enabled = false
+
+[settings.app.extensions]
+registryEnabled = true
+supportedTargets.platform = []
+excluded = ["omni.kit.developer.bundle"]
+
+[settings.app.exts]
+folders."++" = [
+    "${app}/../exts",
+    "${app}/../apps",
+    "${app}/../extscache"
+]
+enabled = []  # Avoid "Key 'exts' already exists"
+
+[settings.app.file]
+ignoreUnsavedOnExit = true
+
+[settings.app.livestream]
+skipCapture = 1
+webrtcEtli = true
+
+[settings.app.rendergraph]
+maxFramesInFlight = 2
+
+[settings.app.runLoops]
+main.rateLimitEnabled = true
+main.rateLimitFrequency = 60
+main.rateLimitUsePrecisionSleep = true
+main.syncToPresent = true
+
+present.rateLimitEnabled = true
+present.rateLimitFrequency = 60
+present.rateLimitUsePrecisionSleep = true
+
+rendering_0.rateLimitEnabled = true
+rendering_0.rateLimitFrequency = 60
+rendering_0.rateLimitUsePrecisionSleep = true
+rendering_0.syncToPresent = true
+
+rendering_1.rateLimitEnabled = true
+rendering_1.rateLimitFrequency = 60
+rendering_1.rateLimitUsePrecisionSleep = true
+rendering_1.syncToPresent = true
+
+[settings.app.runLoopsGlobal]
+syncToPresent = true
+
+[settings.app.viewport]
+defaults.tickRate = 60
+
+[settings.exts."omni.kit.renderer.core"]
+present.enabled = true
+present.presentAfterRendering = true
