@@ -41,7 +41,7 @@ class ChemSimUI:
 
             write_usd_from_reaction(molecule_data, USD_OUTPUT_DIR, source_file_name=selection)
 
-            self.usd_file_list.model.set_value_items(self._get_usd_files())
+            self.usd_file_list.set_value_items(self._get_usd_files())
 
         except Exception as e:
             log_error(f"[ChemSimUI] ❌ Exception during Convert: {e}")
@@ -65,7 +65,18 @@ class ChemSimUI:
         except Exception as e:
             log_error(f"[ChemSimUI] ❌ Error importing USD file: {e}")
 
-
+    def _scan_anim_files(self):
+        anims = []
+        root  = Path(USD_OUTPUT_DIR)
+        if not root.exists():
+            return anims
+        for sub in root.iterdir():
+            if sub.is_dir():
+                anim = sub / "reaction_anim.usd"
+                if anim.exists():
+                    # make path *relative* to USD_OUTPUT_DIR for the ComboBox
+                    anims.append(str(anim.relative_to(root)))
+        return sorted(anims)
 
     def build_ui(self):
         with ui.VStack():
@@ -96,8 +107,8 @@ class ChemSimUI:
 
     def _get_usd_files(self):
         try:
-            usd_files = [f.name for f in Path(USD_OUTPUT_DIR).glob("*.usd")]
-            log_info(f"[ChemSimUI] Found USD files: {usd_files}")
+            usd_files = self._scan_anim_files()
+            log_info(f"[ChemSimUI] Found reaction_anim.usd files: {usd_files}")
             return usd_files
         except Exception as e:
             log_error(f"[ChemSimUI] Error listing USD files: {e}")
