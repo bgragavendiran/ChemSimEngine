@@ -6,21 +6,21 @@ import carb, itertools, math
 LOG = carb.log_info
 
 from pxr import Sdf
-import os, pathlib
+import os, pathlib, time
 
 def _prepare_fresh_layer(path_str: str):
     """
-    Ensure `Usd.Stage.CreateNew(path_str)` can succeed even when the same
-    file was written earlier in this session.
+    Properly clean up existing USD layer so we can safely CreateNew without conflict.
     """
-    # 1) evict from the in-memory layer cache, if present
-    old_layer = Sdf.Layer.Find(path_str)
-    if old_layer is not None:
-        Sdf.Layer.RemoveFromCache(old_layer)     # ← correct call
-
-    # 2) delete any old file on disk (optional but keeps things tidy)
+    # Step 1: Delete file if exists
     if os.path.isfile(path_str):
         os.remove(path_str)
+
+    # Step 2: Evict from in-memory cache
+    old_layer = Sdf.Layer.Find(path_str)
+    if old_layer is not None:
+        old_layer.TransferContent(Sdf.Layer.CreateAnonymous())  # Detach contents
+
 # ------------------------------------------------------------------ #
 def build_reaction_animation(folder: str,
                              *,
@@ -41,8 +41,8 @@ def build_reaction_animation(folder: str,
         raise RuntimeError("Need at least one reactant*.usd and product*.usd")
 
     # ---------- stage -----------------------------------------------------
-    _prepare_fresh_layer(str(folder / "reaction_anim.usd"))
-    stage = Usd.Stage.CreateNew(str(folder / "reaction_anim.usd"))
+    timestamp = int(time.time())
+    stage = Usd.Stage.CreateNew(str(folder / f"reaction_anim_{timestamp}.usd"))
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.y)
     UsdGeom.Xform.Define(stage, "/World")
 

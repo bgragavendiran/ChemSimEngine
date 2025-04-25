@@ -19,7 +19,8 @@ def _prepare_fresh_layer(path_str: str):
     # 1) evict from the in-memory layer cache, if present
     old_layer = Sdf.Layer.Find(path_str)
     if old_layer is not None:
-        Sdf.Layer.RemoveFromCache(old_layer)     # ← correct call
+        # Sdf.Layer.RemoveFromCache(old_layer)     # ← correct call
+        pass
 
     # 2) delete any old file on disk (optional but keeps things tidy)
     if os.path.isfile(path_str):
@@ -35,23 +36,31 @@ def get_color_rgb(elem):
     return palette.get(elem, (.5,.5,.5))
 
 # ---------- materials -----------------------------------------------------
-def create_material(stage, element):
-    rgb = get_color_rgb(element)
-    root = f"/World/Materials/{sanitize_prim_name(element)}"
+def create_material(stage, atom):
+    hex_color = getattr(atom, "color", "#888888")
+    hex_color = hex_color.lstrip("#")
+    r, g, b = [int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
+
+    root = f"/World/Materials/{sanitize_prim_name(atom.element)}"
     mat  = UsdShade.Material.Define(stage, root)
-    sh   = UsdShade.Shader.Define(stage, root+"/Shader")
+    sh   = UsdShade.Shader.Define(stage, root + "/Shader")
     sh.CreateIdAttr("UsdPreviewSurface")
-    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(r, g, b))
     mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
     return mat
 
+
 # ---------- atoms ---------------------------------------------------------
 def add_atom(stage, atom, parent):
-    prim = UsdGeom.Sphere.Define(stage, f"{parent}/{atom.id}")
+    element = atom.element
+    index = ''.join(filter(str.isdigit, atom.id)) or "0"  # Extract number from id like "p1" → "1"
+    prim_name = f"{element}_{index}"
+    prim = UsdGeom.Sphere.Define(stage, f"{parent}/{sanitize_prim_name(prim_name)}")
     prim.GetRadiusAttr().Set(ATOM_RADIUS)
     UsdGeom.Xformable(prim).AddTranslateOp().Set(Gf.Vec3f(*atom.position))
-    mat = create_material(stage, atom.element)
+    mat = create_material(stage, atom)
     UsdShade.MaterialBindingAPI(prim.GetPrim()).Bind(mat)
+
 
 # ---------- bonds ---------------------------------------------------------
 # ────────────────────────────────────────────────────────────────────────────

@@ -57,9 +57,13 @@ Each MolecularStructure is a dictionary:
 {
   "name": "MoleculeName",
   "formula": "H2O",
-  "description": "A water molecule consisting of two hydrogen and one oxygen atom.",
+  "description": "Short description of the molecule",
   "atoms": [
-    { "id": "a1", "element": "C"},
+    {
+      "id": "a1",
+      "element": "C",
+      "color": "#FF0000"
+    },
     ...
   ],
   "bonds": [
@@ -68,31 +72,44 @@ Each MolecularStructure is a dictionary:
   ]
 }
 
+⚠️ Important Constraints:
+- Every atom MUST include:
+  - `id`
+  - `element`
+  - `color` (a hex color string like "#FF0000" representing the atom color)
+- Every **unique element** (like `H`, `O`, `C`, etc.) MUST have its **own consistent color**.
+- All atoms of the **same element** MUST have the **same color** throughout the entire response.
+- The **atoms and bonds must match the molecule's chemical formula exactly**.
+  - For example: H2O must have 2 Hydrogen atoms and 1 Oxygen atom.
+  - Do not omit atoms or bonds based on assumed simplicity.
+
 ✅ Example Output:
 
 {
   "reactants": [
     {
       "name": "Ethanol",
-      "formula": "H2O",
-      "description": "A water molecule consisting of two hydrogen and one oxygen atom.",
+      "formula": "C2H6O",
+      "description": "A two-carbon alcohol molecule.",
       "atoms": [
-        { "id": "a1", "element": "C","color": "#FF0000" },
-        { "id": "a2", "element": "O","color": "#FFFFFF" }
+        { "id": "a1", "element": "C", "color": "#000000" },
+        { "id": "a2", "element": "H", "color": "#FFFFFF" },
+        { "id": "a3", "element": "O", "color": "#FF0000" }
       ],
       "bonds": [
-        { "from_atom": "a1", "to_atom": "a2" }
+        { "from_atom": "a1", "to_atom": "a2" },
+        { "from_atom": "a1", "to_atom": "a3" }
       ]
     }
   ],
   "products": [
     {
       "name": "Acetaldehyde",
-      "formula": "",
-      "description": "",
+      "formula": "C2H4O",
+      "description": "Formed by oxidation of ethanol.",
       "atoms": [
-        { "id": "p1", "element": "C","color": "#FF0000" },
-        { "id": "p2", "element": "O","color": "#FFFFFF"}
+        { "id": "p1", "element": "C", "color": "#000000" },
+        { "id": "p2", "element": "O", "color": "#FF0000" }
       ],
       "bonds": [
         { "from_atom": "p1", "to_atom": "p2" }
@@ -103,8 +120,10 @@ Each MolecularStructure is a dictionary:
   "reactionDescription": "Ethanol is oxidized to form acetaldehyde and water."
 }
 
-Respond only with the JSON content as above.
+Respond only with the JSON content as shown above.
 """.strip()
+
+
 
 
 def generate_reaction_id(prompt: str) -> str:
@@ -122,7 +141,7 @@ def query_gpt_and_store_if_missing(prompt: str):
     full_prompt = LLM_STRUCTURE_GUIDE.strip() + "\n\nReaction prompt:\n" + prompt
 
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4-1106-preview",
         messages=[
             {"role": "system", "content": "You are a chemistry modeling assistant."},
             {"role": "user", "content": full_prompt}

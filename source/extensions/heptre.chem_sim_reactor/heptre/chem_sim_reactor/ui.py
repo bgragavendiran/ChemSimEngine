@@ -104,7 +104,13 @@ class ChemSimUI:
             element_color_map = {}
             for compound in reaction_data["reactants"] + reaction_data["products"]:
                 for atom in compound.get("atoms", []):
-                    element_color_map[atom["element"]] = atom.get("color", "#888888")
+                    element = atom["element"]
+                    color = atom.get("color")
+                    if color:
+                        element_color_map[element] = color
+                    elif element not in element_color_map:
+                        element_color_map[element] = "#888888"  # Only fallback if no color ever given
+
 
             reaction_formula = reaction_data.get("reaction", "No formula provided")
             reaction_description = reaction_data.get("reactionDescription", "No description available")
@@ -113,7 +119,8 @@ class ChemSimUI:
             self._show_reaction_summary_overlay(
                 formula=reaction_formula,
                 description=reaction_description,
-                process=reaction_process
+                process=reaction_process,
+                element_color_map=element_color_map
             )
 
             stage.GetRootLayer().Save()
@@ -125,16 +132,16 @@ class ChemSimUI:
 
     def _scan_anim_files(self):
         anims = []
-        root  = Path(USD_OUTPUT_DIR)
+        root = Path(USD_OUTPUT_DIR)
         if not root.exists():
             return anims
+
         for sub in root.iterdir():
             if sub.is_dir():
-                anim = sub / "reaction_anim.usd"
-                if anim.exists():
-                    # make path *relative* to USD_OUTPUT_DIR for the ComboBox
-                    anims.append(str(anim.relative_to(root)))
+                for usd_file in sub.glob("reaction_anim_*.usd"):
+                    anims.append(str(usd_file.relative_to(root)))
         return sorted(anims)
+
 
     def color_rgb(self, name):
         table = {
@@ -154,7 +161,8 @@ class ChemSimUI:
         return table.get(name, (0.5, 0.5, 0.5))
 
 
-    def _show_reaction_summary_overlay(self, formula: str, description: str, process: str):
+
+    def _show_reaction_summary_overlay(self, formula: str, description: str, process: str, element_color_map: Dict[str, str]):
         log_info("[ChemSimUI] Showing floating overlay with updated reaction info")
 
         if self.overlay_window is None:
@@ -175,6 +183,14 @@ class ChemSimUI:
                         process,
                         style={"color": "white", "font_size": 16, "word_wrap": True}
                     )
+                    for element, hex_color in element_color_map.items():
+                        hex_color = hex_color.lstrip("#")
+                        r, g, b = [int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
+                        rgb = (r, g, b)
+                        ui.Label(
+                            f"{element}",
+                            style={"color": rgb, "font_size": 14}
+                        )
         else:
             # Update existing window content
             self.overlay_formula_label.text = formula
@@ -237,6 +253,7 @@ class ChemSimUI:
             log_info(f"[ChemSimUI] Wrote JSON output to: {output_path}")
 
             # 🛠 Instead of set_item_list, recreate ComboBox
+
             new_items = self._get_json_files()
             if new_items :
                 self.json_model.set_value(new_items[0])
