@@ -40,8 +40,8 @@ class ChemSimUI:
                 molecule_data = json.load(f)
 
             write_usd_from_reaction(molecule_data, USD_OUTPUT_DIR, source_file_name=selection)
-
-            self.usd_file_list.set_value_items(self._get_usd_files())
+            files = self._get_usd_files()
+            self.usd_file_list.model = ui.SimpleStringModel(files)
 
         except Exception as e:
             log_error(f"[ChemSimUI] ❌ Exception during Convert: {e}")

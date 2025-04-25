@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(BASE_DIR, "firebase-adminsdk.json")
 
 if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase-adminsdk.json")
+    cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred, {
         'databaseURL': "https://vrchemlab-d3f91-default-rtdb.asia-southeast1.firebasedatabase.app/"
     })
