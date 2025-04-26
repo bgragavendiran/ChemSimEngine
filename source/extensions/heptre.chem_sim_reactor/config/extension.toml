@@ -1,7 +1,7 @@
 [package]
 title = "chem_sim_reactor"
-version = "0.1.0"
-description = "The simplest python extension example. Use it as a starting point for your extensions."
+version = "2.0.0"
+description = "Simulate chemical reactions with high-fidelity in Omniverse using OpenUSD and PhysX. Includes LLM-driven backend integration."
 category = "Example"
 changelog = "docs/CHANGELOG.md"
 icon = "data/icon.png"

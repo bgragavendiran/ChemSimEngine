@@ -9,8 +9,20 @@ from pxr import UsdGeom, Sdf
 from typing import Dict
 
 EXT_DIR = os.path.dirname(os.path.abspath(__file__))
-JSON_OUTPUT_DIR = os.path.join(EXT_DIR, "output_json")
-USD_OUTPUT_DIR = os.path.join(EXT_DIR, "output_usd")
+
+# Check if running inside a _build environment
+if "_build" in EXT_DIR:
+    OUTPUT_ROOT_DIR = EXT_DIR
+else:
+    # Dynamically map to _build output if running from source
+    OUTPUT_ROOT_DIR = EXT_DIR.replace(
+        r"source\extensions",
+        r"_build\windows-x86_64\release\exts"
+    )
+
+JSON_OUTPUT_DIR = os.path.join(OUTPUT_ROOT_DIR, "output_json")
+USD_OUTPUT_DIR = os.path.join(OUTPUT_ROOT_DIR, "output_usd")
+
 
 log_info = carb.log_info
 log_warn = carb.log_warn
