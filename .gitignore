@@ -40,3 +40,6 @@ deps/**/user.toml
 /source/extensions/heptre.chem_sim_reactor/heptre/chem_sim_reactor/output_json/
 /source/extensions/heptre.chem_sim_reactor/heptre/chem_sim_reactor/output_raw/
 /source/extensions/heptre.chem_sim_reactor/heptre/chem_sim_reactor/output_usd/
+
+firebase-adminsdk.json
+.env
