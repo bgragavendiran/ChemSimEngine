@@ -34,7 +34,7 @@ Unlike educational chemistry apps, this project targets **high-fidelity scientif
 ```mermaid
 flowchart TD
     A[User Input / Query] --> B(ChemAPI Backend - FastAPI)
-    B --> C{LLM (OpenAI)}
+    B --> C(["LLM (OpenAI)"])
     C --> D[Generate Compounds / Reaction Parameters]
     D --> E[Store in Firebase & SQL]
     D --> F[Convert to USD Assets]
