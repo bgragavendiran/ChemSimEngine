@@ -1,10 +1,6 @@
 # Chemical Reaction Simulation Engine
 **with NVIDIA Omniverse, OpenUSD, and LLM-based Automation**
 
-<p align="center">
-  <img src="readme-assets/banner.png" width="100%" />
-</p>
-
 ## Overview
 
 Welcome to the **Chemical Reaction Simulation Engine**, a project developed to create scalable, high-fidelity chemical simulations using **NVIDIA Omniverse**, **PhysX**, **OpenUSD**, and **Large Language Models (LLMs)**.
