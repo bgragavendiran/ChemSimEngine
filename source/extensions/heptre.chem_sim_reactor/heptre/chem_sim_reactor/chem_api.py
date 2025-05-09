@@ -142,7 +142,7 @@ def query_gpt_and_store_if_missing(prompt: str):
             {"role": "user", "content": full_prompt}
         ],
         max_tokens=3500,
-        temperature=0
+        temperature=0.5
     )
 
     content = response.choices[0].message.content.strip()

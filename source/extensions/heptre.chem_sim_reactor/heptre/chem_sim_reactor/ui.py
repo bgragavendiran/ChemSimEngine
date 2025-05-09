@@ -207,14 +207,17 @@ class ChemSimUI:
             self.overlay_description_label.text = description
             self.overlay_process_label.text = process
 
-
     def build_ui(self):
+        self._build_main_ui()
+
+    def _build_main_ui(self):
         with ui.VStack():
+            ui.Label("ChemSim Panel", style={"font_size": 20})
             ui.Label("Enter a reaction prompt:")
             self.prompt_input = ui.StringField()
 
             ui.Button("Generate", clicked_fn=self._send_prompt_to_backend)
-
+            ui.Spacer(height=20)
             ui.Label("Available JSON reaction results:")
             self.json_file_list = ui.ComboBox(0, *self._get_json_files())
 
@@ -225,6 +228,8 @@ class ChemSimUI:
             self.usd_file_list = ui.ComboBox(0, *self._get_usd_files())
 
             ui.Button("Import Selected USD", clicked_fn=self._import_usd_file)
+            ui.Spacer(height=20)
+            ui.Button("Open Advanced Rendering", clicked_fn=self._open_advanced_window)
 
 
     def _get_json_files(self):
@@ -269,6 +274,12 @@ class ChemSimUI:
 
     def _reload_extension(self):
         try:
+            if self.overlay_window:
+                self.overlay_window.close()
+                self.overlay_window = None
+                self.overlay_formula_label = None
+                self.overlay_description_label = None
+                self.overlay_process_label = None
             window = ui.Workspace.get_window("ChemSim Panel")
             if window:
                 log_info("[ChemSimUI] 🧹 Clearing ChemSim Panel before UI rebuild")
@@ -281,3 +292,19 @@ class ChemSimUI:
                 self.build_ui()
         except Exception as e:
             log_error(f"[ChemSimUI] ❌ Failed to reload extension: {e}")
+
+    def _open_advanced_window(self):
+        if hasattr(self, 'advanced_window') and self.advanced_window and not self.advanced_window.is_closed:
+            self.advanced_window.focus()
+            return
+
+        self.advanced_window = ui.Window("Advanced Rendering", width=600, height=400)
+
+        with self.advanced_window.frame:
+            with ui.VStack():
+                ui.Label("Advanced Rendering Options", style={"font_size": 18})
+
+                ui.Label("Simulation parameters (PhysX, visuals, etc.) coming soon...")
+                ui.FloatSlider(min=20, max=100, default=25, label="Temperature (°C)")
+                ui.FloatSlider(min=1, max=10, default=1, label="Pressure (atm)")
+                ui.FloatSlider(min=0, max=1, default=0.5, label="Reactant A Concentration")
