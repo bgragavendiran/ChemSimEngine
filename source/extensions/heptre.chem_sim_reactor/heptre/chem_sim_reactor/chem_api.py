@@ -136,13 +136,13 @@ def query_gpt_and_store_if_missing(prompt: str):
     full_prompt = LLM_STRUCTURE_GUIDE.strip() + "\n\nReaction prompt:\n" + prompt
 
     response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
+        model="gpt-4-turbo",
         messages=[
             {"role": "system", "content": "You are a chemistry modeling assistant."},
             {"role": "user", "content": full_prompt}
         ],
         max_tokens=3500,
-        temperature=1
+        temperature=0
     )
 
     content = response.choices[0].message.content.strip()

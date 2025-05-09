@@ -8,6 +8,12 @@ LOG = carb.log_info
 from pxr import Sdf
 import os, pathlib, time
 
+import re
+
+def sanitize_prim_name(txt: str) -> str:
+    # Replace any character that’s not A–Z, a–z, 0–9, or underscore with underscore
+     return re.sub(r'[^A-Za-z0-9_]', '_', txt)
+
 def _prepare_fresh_layer(path_str: str):
     """
     Properly clean up existing USD layer so we can safely CreateNew without conflict.
@@ -81,9 +87,9 @@ def build_reaction_animation(folder: str,
     inner_r     = max(1.2, ring_radius*0.4)
     inner_pos   = list(ring_layout(len(prod_paths),  inner_r))
 
-    react_xf = [add_ref(p, f"/World/Reactants/{p.stem}", pos, p.stem)
+    react_xf = [add_ref(p, f"/World/Reactants/{sanitize_prim_name(p.stem)}", pos, p.stem)
                 for p, pos in zip(react_paths, outer_pos)]
-    prod_xf  = [add_ref(p, f"/World/Products/{p.stem}",  pos, p.stem)
+    prod_xf  = [add_ref(p, f"/World/Products/{sanitize_prim_name(p.stem)}",  pos, p.stem)
                 for p, pos in zip(prod_paths,  inner_pos)]
 
     # ---------- animate reactants -----------------------------------------

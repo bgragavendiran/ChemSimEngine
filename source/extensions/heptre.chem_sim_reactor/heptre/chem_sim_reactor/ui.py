@@ -64,9 +64,7 @@ class ChemSimUI:
                 molecule_data = json.load(f)
 
             write_usd_from_reaction(molecule_data, USD_OUTPUT_DIR, source_file_name=selection)
-            new_usd_list = self._get_usd_files()
-            self.usd_file_list.model.set_item_list(new_usd_list)
-            self.usd_file_list.model.set_value(0)
+            self._reload_extension()
 
 
         except Exception as e:
@@ -264,19 +262,22 @@ class ChemSimUI:
 
             log_info(f"[ChemSimUI] Wrote JSON output to: {output_path}")
 
-
-            new_items = self._get_json_files()
-
-            if self.json_file_list:
-                # Create a new model and reassign it — that's the correct way
-                new_model = ui.SimpleStringModelList(new_items)
-                self.json_file_list.model = new_model
-
-                # Optionally select the first item
-                if new_items:
-                    self.json_file_list.model.set_value(new_items[0])
-
-
+            self._reload_extension()
 
         except Exception as e:
             log_error(f"[ChemSimUI] Error in GPT backend call: {e}")
+
+    def _reload_extension(self):
+        try:
+            window = ui.Workspace.get_window("ChemSim Panel")
+            if window:
+                log_info("[ChemSimUI] 🧹 Clearing ChemSim Panel before UI rebuild")
+                window.frame.clear()
+                with window.frame:
+                    self.build_ui()
+                log_info("[ChemSimUI] 🔁 Extension UI rebuilt successfully.")
+            else:
+                log_warn("[ChemSimUI] ⚠️ Could not find window 'ChemSim Panel'. Rebuilding directly.")
+                self.build_ui()
+        except Exception as e:
+            log_error(f"[ChemSimUI] ❌ Failed to reload extension: {e}")

@@ -1,7 +1,7 @@
 from pxr import Usd, UsdGeom, Gf, UsdShade, Sdf
 from .Molecular import MolecularStructure, Atom, Bond
 from .reaction_anim_builder import build_reaction_animation
-
+import re
 import os, math, carb, itertools
 from collections import deque, defaultdict
 
@@ -26,10 +26,9 @@ def _prepare_fresh_layer(path_str: str):
     if os.path.isfile(path_str):
         os.remove(path_str)
 # ---------- utility -------------------------------------------------------
-def sanitize_prim_name(txt):
-    for ch in ' /\\:*?"<>|':
-        txt = txt.replace(ch, '_')
-    return txt
+def sanitize_prim_name(txt: str) -> str:
+    # Replace any character that’s not A–Z, a–z, 0–9, or underscore with underscore
+    return re.sub(r'[^A-Za-z0-9_]', '_', txt)
 
 def get_color_rgb(elem):
     palette = {"H":(1,1,1),"C":(.1,.1,.1),"O":(1,0,0),"N":(0,0,1)}
@@ -192,7 +191,13 @@ def generate_usd_file(mol, path):
     st.SetDefaultPrim(world.GetPrim())
 
     # molecule scope
-    root = f"/World/{sanitize_prim_name(mol.name)}"
+    safe_name = sanitize_prim_name(mol.name or "UnnamedCompound")
+    if not safe_name:
+        safe_name = "UnnamedCompound"
+    root = f"/World/{safe_name}"
+
+    if not Sdf.Path(root).IsAbsolutePath() or root == "/World/":
+        raise ValueError(f"Invalid prim path: {root}")
     UsdGeom.Xform.Define(st, root)
 
     # positions, atoms, bonds  … (everything below is unchanged)
@@ -218,6 +223,7 @@ def generate_usd_file(mol, path):
     st.GetRootLayer().Save()
     carb.log_info(f"✔  {path}")
 
+import uuid  # Add to imports if not present
 def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.json"):
     folder = os.path.join(out_dir, os.path.splitext(source_file_name)[0])
     os.makedirs(folder, exist_ok=True)
@@ -231,8 +237,9 @@ def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.jso
             carb.log_info(f"  🔗 Bonds: {bond_ids}")
 
             try:
+                mol_name = m.get("name") or f"{role}_{uuid.uuid4().hex[:6]}"
                 mol = MolecularStructure(
-                    m.get("name", role),
+                    mol_name,
                     [Atom(**a) for a in m["atoms"]],
                     [Bond(**b) for b in m["bonds"]]
                 )
@@ -245,3 +252,9 @@ def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.jso
             except Exception as e:
                 carb.log_error(f"❌ Failed to generate USD for {mol.name}: {e}")
                 raise
+        carb.log_info(f"Animation build Starting")
+        carb.log_info(f"write_usd_from_reaction called with: {len(js.get('reactants', []))} reactants, {len(js.get('products', []))} products")
+        try:
+            build_reaction_animation(folder)
+        except Exception as e:
+            carb.log_error(f"⚠️ Animation build failed: {e}")
