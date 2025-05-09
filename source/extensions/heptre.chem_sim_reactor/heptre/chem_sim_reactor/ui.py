@@ -264,11 +264,19 @@ class ChemSimUI:
 
             log_info(f"[ChemSimUI] Wrote JSON output to: {output_path}")
 
-            # 🛠 Instead of set_item_list, recreate ComboBox
 
             new_items = self._get_json_files()
-            if new_items :
-                self.json_model.set_value(new_items[0])
+
+            if self.json_file_list:
+                # Create a new model and reassign it — that's the correct way
+                new_model = ui.SimpleStringModelList(new_items)
+                self.json_file_list.model = new_model
+
+                # Optionally select the first item
+                if new_items:
+                    self.json_file_list.model.set_value(new_items[0])
+
+
 
         except Exception as e:
             log_error(f"[ChemSimUI] Error in GPT backend call: {e}")

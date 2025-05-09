@@ -51,15 +51,16 @@ def create_material(stage, atom):
 
 
 # ---------- atoms ---------------------------------------------------------
-def add_atom(stage, atom, parent):
+def add_atom(stage, atom, parent, position):
     element = atom.element
-    index = ''.join(filter(str.isdigit, atom.id)) or "0"  # Extract number from id like "p1" → "1"
+    index = ''.join(filter(str.isdigit, atom.id)) or "0"
     prim_name = f"{element}_{index}"
     prim = UsdGeom.Sphere.Define(stage, f"{parent}/{sanitize_prim_name(prim_name)}")
     prim.GetRadiusAttr().Set(ATOM_RADIUS)
-    UsdGeom.Xformable(prim).AddTranslateOp().Set(Gf.Vec3f(*atom.position))
+    UsdGeom.Xformable(prim).AddTranslateOp().Set(Gf.Vec3f(*position))
     mat = create_material(stage, atom)
     UsdShade.MaterialBindingAPI(prim.GetPrim()).Bind(mat)
+
 
 
 # ---------- bonds ---------------------------------------------------------
@@ -127,27 +128,52 @@ def add_bond(stage, p0, p1, idx, parent,
 
 # ---------- quick BFS layout ---------------------------------------------
 def auto_layout(atoms, bonds, bond_len=1.2):
+    carb.log_info("🧠 Running auto_layout...")
+
+    # Step 1: Build neighbor graph
     nbr = defaultdict(list)
     for b in bonds:
         nbr[b.from_atom].append(b.to_atom)
         nbr[b.to_atom].append(b.from_atom)
 
+    # Step 2: Initialize layout
     dirs = [(1,0,0),(-1,0,0),(0,1,0),(0,-1,0),(0,0,1),(0,0,-1)]
-    pos  = {atoms[0].id:(0.,0.,0.)}
+    pos  = {atoms[0].id: (0.0, 0.0, 0.0)}
     q    = deque([atoms[0].id])
 
+    carb.log_info(f"📌 Starting layout from atom: {atoms[0].id} at (0,0,0)")
+
+    # Step 3: BFS layout for connected atoms
     while q:
         cur = q.popleft()
-        base= Gf.Vec3d(*pos[cur])
+        base = Gf.Vec3d(*pos[cur])
         free = iter(itertools.cycle(dirs))
+
         for n in nbr[cur]:
-            if n in pos: continue
+            if n in pos:
+                continue
             while True:
                 d = next(free)
-                cand = tuple(base+bond_len*Gf.Vec3d(*d))
+                cand = tuple(base + bond_len * Gf.Vec3d(*d))
                 if cand not in pos.values():
-                    pos[n]=cand; q.append(n); break
+                    pos[n] = cand
+                    q.append(n)
+                    carb.log_info(f"➕ Placed atom {n} near {cur} at {cand}")
+                    break
+
+    # Step 4: Handle unconnected atoms
+    unplaced = [a.id for a in atoms if a.id not in pos]
+    if unplaced:
+        carb.log_warn(f"⚠️ Unconnected atoms detected: {unplaced}")
+        base = Gf.Vec3d(5.0, 0, 0)  # place away from main cluster
+        for i, aid in enumerate(unplaced):
+            p = tuple(base + Gf.Vec3d(i * 1.5, 0, 0))
+            pos[aid] = p
+            carb.log_warn(f"📍 Manually placed unconnected atom {aid} at {p}")
+
+    carb.log_info(f"✅ Final layout positions: {pos}")
     return pos
+
 
 # ---------- USD generation -----------------------------------------------
 # ─── USD generation ───────────────────────────────────────────────────────
@@ -171,35 +197,51 @@ def generate_usd_file(mol, path):
 
     # positions, atoms, bonds  … (everything below is unchanged)
     pos = auto_layout(mol.atoms, mol.bonds)
+    carb.log_info(f"🧭 Layout positions: {pos}")
     for a in mol.atoms:
-        a.position = pos[a.id]
-        add_atom(st, a, root)
+        if a.id not in pos:
+            carb.log_error(f"❌ Atom {a.id} has no layout position!")
+        else:
+            carb.log_info(f"📍 Placing atom {a.id} at {pos[a.id]}")
+        add_atom(st, a, root, pos[a.id])
+
     for i, b in enumerate(mol.bonds):
-        add_bond(st, pos[b.from_atom], pos[b.to_atom], i, root)
+        try:
+            p0 = pos[b.from_atom]
+            p1 = pos[b.to_atom]
+            carb.log_info(f"🔗 Drawing bond {i}: {b.from_atom} → {b.to_atom} at {p0} → {p1}")
+            add_bond(st, p0, p1, i, root)
+        except KeyError as ke:
+            carb.log_error(f"❌ Bond refers to unknown atom ID: {ke}")
+            raise
 
     st.GetRootLayer().Save()
     carb.log_info(f"✔  {path}")
 
 def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.json"):
-    folder=os.path.join(out_dir,os.path.splitext(source_file_name)[0]); os.makedirs(folder,exist_ok=True)
-    for role in ("reactants","products"):
-        for m in js.get(role,[]):
-            mol=MolecularStructure(m.get("name",role),
-                                   [Atom(**a) for a in m["atoms"]],
-                                   [Bond(**b) for b in m["bonds"]])
-            generate_usd_file(mol, os.path.join(folder,f"{role}_{sanitize_prim_name(mol.name)}.usd"))
-    carb.log_info("🎉  all done")
-    carb.log_info(f"🎉 All USDs written to {folder}")
-    # -------------------------------------------------------------
-    # 🔄  Generate the combined reaction animation in that folder
-    # -------------------------------------------------------------
-    try:
-        build_reaction_animation(
-            folder=str(folder),          # where the USDs are
-            ring_radius=5.0,             # tweak as desired
-            react_frames=24,
-            hold_frames=24
-        )
-        carb.log_info("🎬 reaction_anim.usd built successfully")
-    except Exception as e:
-        carb.log_warn(f"⚠️  Could not build reaction animation: {e}")
+    folder = os.path.join(out_dir, os.path.splitext(source_file_name)[0])
+    os.makedirs(folder, exist_ok=True)
+
+    for role in ("reactants", "products"):
+        for m in js.get(role, []):
+            carb.log_info(f"🔍 Processing {role}: {m.get('name', role)}")
+            atom_ids = [a["id"] for a in m["atoms"]]
+            bond_ids = [(b["from_atom"], b["to_atom"]) for b in m["bonds"]]
+            carb.log_info(f"  🔬 Atoms: {atom_ids}")
+            carb.log_info(f"  🔗 Bonds: {bond_ids}")
+
+            try:
+                mol = MolecularStructure(
+                    m.get("name", role),
+                    [Atom(**a) for a in m["atoms"]],
+                    [Bond(**b) for b in m["bonds"]]
+                )
+            except Exception as e:
+                carb.log_error(f"❌ Error creating MolecularStructure: {e}")
+                raise
+
+            try:
+                generate_usd_file(mol, os.path.join(folder, f"{role}_{sanitize_prim_name(mol.name)}.usd"))
+            except Exception as e:
+                carb.log_error(f"❌ Failed to generate USD for {mol.name}: {e}")
+                raise

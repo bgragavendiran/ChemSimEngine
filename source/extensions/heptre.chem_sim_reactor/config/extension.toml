@@ -16,6 +16,7 @@ repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"
 "omni.kit.viewport.window" = {}
 "omni.kit.window.console" = {}
 "omni.kit.window.extensions" = {}
+"omni.kit.window.filepicker" = {}
 
 [settings]
 
