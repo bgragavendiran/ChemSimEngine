@@ -21,7 +21,9 @@ repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"
 "omni.kit.viewport.menubar.lighting" = {}
 "omni.timeline" = {}
 
+
 [settings]
+autoload = true
 
 [[python.module]]
 name = "heptre.chem_sim_reactor"

@@ -5,9 +5,9 @@ import json
 import carb
 from .chem_api import get_molecule_structure
 from .usd_writer import write_usd_from_reaction
+
 from pxr import UsdGeom, Sdf
 from typing import Dict
-from .viewport_capture import render_usd_frames, create_gif_from_frames
 from .firebase_utils import upload_anim_and_update_db
 
 import omni.usd
@@ -32,32 +32,10 @@ log_info = carb.log_info
 log_warn = carb.log_warn
 log_error = carb.log_error
 
-
-def _set_grey_studio_lighting():
-    settings = carb.settings.get_settings()
-    settings.set("/persistent/exts/omni.kit.viewport.menubar.lighting/environmentPreset", "Grey Studio")
+import asyncio
+from .viewport_capture import safe_render_usd_frames, create_gif_from_frames
 
 
-def focus_and_zoom_on_world():
-    ctx = omni.usd.get_context()
-    stage = ctx.get_stage()
-    if not stage:
-        carb.log_error("❌ No USD stage found.")
-        return
-
-    world_prim = stage.GetPrimAtPath("/World")
-    if not world_prim or not world_prim.IsValid():
-        carb.log_error("❌ '/World' prim not found or invalid.")
-        return
-
-    ctx.clear_selection()
-    ctx.set_selected_prims([world_prim])
-
-    # Perform viewport focus
-    viewport = vp_util.get_active_viewport()
-    if viewport:
-        carb.log_info("🎯 Zooming camera to focus on /World")
-        viewport.focus_on_selection()
 
 
 class ChemSimUI:
@@ -71,6 +49,24 @@ class ChemSimUI:
         self.overlay_formula_label = None
         self.overlay_description_label = None
         self.overlay_process_label = None
+        from .firebase_utils import start_background_sync
+        start_background_sync()
+
+    def _render_and_upload(self, usd_path, frames_dir, gif_path, reaction_formula, reaction_description, json_filename):
+        def after_render():
+            create_gif_from_frames(frames_dir, gif_path, duration=0.08)
+            success, msg = upload_anim_and_update_db(gif_path, json_filename, json_filename, {
+                "reaction": reaction_formula,
+                "reactionDescription": reaction_description
+            })
+            if success:
+                log_info(f"✅ GIF uploaded: {msg}")
+            else:
+                log_error(f"❌ GIF upload failed: {msg}")
+
+        safe_render_usd_frames(
+            usd_path, frames_dir, start=0, end=60, on_complete=after_render
+        )
 
     def _convert_json_to_usd(self):
         try:
@@ -107,9 +103,6 @@ class ChemSimUI:
                 log_error("[ChemSimUI] ❌ No USD stage available.")
                 return
 
-            # Zoom and light
-            _set_grey_studio_lighting()
-            focus_and_zoom_on_world()
 
             # ✅ Play animation
             timeline = omni.timeline.get_timeline_interface()
@@ -155,16 +148,17 @@ class ChemSimUI:
             # Play animation and capture
             if selection.endswith(".usd") and "reaction_anim_" in selection:
                 folder = os.path.join(USD_OUTPUT_DIR, selection.split("\\")[0])
-                gif_path = os.path.join(folder, selection.replace(".usd", ".gif"))
+                filename = os.path.basename(selection).replace(".usd", ".gif")
+                gif_path = os.path.join(folder, filename)
                 frames_dir = os.path.join(folder, "frames")
                 os.makedirs(frames_dir, exist_ok=True)
+                self._render_and_upload(
+                    usd_path, frames_dir, gif_path,
+                    reaction_formula, reaction_description, json_filename
+                )
 
-                timeline = omni.timeline.get_timeline_interface()
-                timeline.play()
-                render_usd_frames(usd_path, frames_dir, start=0, end=60)
-                create_gif_from_frames(frames_dir, gif_path)
-                timeline.stop()
 
+                # ✅ Upload the result
                 success, msg = upload_anim_and_update_db(gif_path, json_filename, json_filename, {
                     "reaction": reaction_formula,
                     "reactionDescription": reaction_description

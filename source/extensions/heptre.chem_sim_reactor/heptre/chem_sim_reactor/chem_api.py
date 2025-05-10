@@ -9,7 +9,7 @@ import hashlib
 # Load environment variables
 from dotenv import load_dotenv
 from .firebase_utils import get_firebase_reactions_ref, get_firebase_compounds_ref
-from .firebase_utils import start_background_sync
+
 from .gpt_utils import query_gpt_and_store_if_missing
 
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -24,7 +24,7 @@ firebase_compounds = get_firebase_compounds_ref()
 
 # Initialize FastAPI
 app = FastAPI()
-start_background_sync()
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn")

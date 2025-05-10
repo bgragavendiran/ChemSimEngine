@@ -3,12 +3,12 @@ import json
 import firebase_admin
 from firebase_admin import credentials, storage, db
 from firebase_admin import delete_app
-import threading
-from .viewport_capture import render_usd_frames, create_gif_from_frames
+from omni.kit.app import get_app
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(BASE_DIR, "firebase-adminsdk.json")
 
+# (Re)init Firebase safely
 if firebase_admin._apps:
     print("🔄 Reinitializing Firebase app...")
     delete_app(firebase_admin.get_app())
@@ -59,7 +59,7 @@ def _get_cached_upload_status():
     return ref.get() or {}
 
 def sync_missing_animations():
-    print("🔍 Starting background sync of animations...")
+    print("🔍 Scanning for missing animations to upload...")
     if not os.path.exists(ANIM_LOCAL_DIR):
         print("⚠️ No animations directory found.")
         return
@@ -83,29 +83,27 @@ def sync_missing_animations():
             "reactionName": folder,
             "reactionDescription": f"Auto-synced reaction {folder}"
         }
-        reaction_json_path = os.path.join(BASE_DIR, "output_json", f"{folder}.json")
-        if os.path.exists(reaction_json_path):
+
+        # Try to enrich metadata from corresponding JSON
+        json_path = os.path.join(BASE_DIR, "output_json", f"{folder}.json")
+        if os.path.exists(json_path):
             try:
-                with open(reaction_json_path, "r", encoding="utf-8") as f:
+                with open(json_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     reaction_summary["reaction"] = data.get("reaction", folder)
                     reaction_summary["reactionDescription"] = data.get("reactionDescription", f"Reaction: {folder}")
             except Exception as e:
                 print(f"⚠️ Could not read {folder}.json: {e}")
-        try:
-            frames_dir = os.path.join(os.path.dirname(full_path), "frames")
-            gif_path = full_path.replace(".usd", ".gif")
-            render_usd_frames(full_path, frames_dir)
-            create_gif_from_frames(frames_dir, gif_path)
-            print(f"✅ GIF created: {gif_path}")
-            success, msg = upload_anim_and_update_db(gif_path, folder, folder, reaction_summary)
-            if success:
-                print(f"✅ Uploaded GIF: {msg}")
-            else:
-                print(f"❌ Upload failed: {msg}")
-        except Exception as e:
-            print(f"⚠️ GIF rendering or upload failed: {e}")
+
+        success, msg = upload_anim_and_update_db(full_path, folder, folder, reaction_summary)
+        if success:
+            print(f"✅ Uploaded: {msg}")
+        else:
+            print(f"❌ Upload failed: {msg}")
 
 def start_background_sync():
-    thread = threading.Thread(target=sync_missing_animations, daemon=True)
-    thread.start()
+    def _sync():
+        import threading
+        thread = threading.Thread(target=sync_missing_animations, daemon=True)
+        thread.start()
+    get_app().get_update_event_stream().create_subscription_to_push(lambda e: _sync())
