@@ -4,7 +4,7 @@ from .reaction_anim_builder import build_reaction_animation
 import re
 import os, math, carb, itertools
 from collections import deque, defaultdict
-
+from .firebase_utils import upload_anim_and_update_db
 # ---------- constants -----------------------------------------------------
 ATOM_RADIUS = 0.20
 BOND_RADIUS = 0.05
@@ -256,5 +256,21 @@ def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.jso
         carb.log_info(f"write_usd_from_reaction called with: {len(js.get('reactants', []))} reactants, {len(js.get('products', []))} products")
         try:
             build_reaction_animation(folder)
+
         except Exception as e:
             carb.log_error(f"⚠️ Animation build failed: {e}")
+        # ✅ Upload animation and write RTDB metadata
+        reaction_id = os.path.basename(folder)
+        reaction_summary = {
+            "reaction": js.get("reaction", ""),
+            "reactionDescription": js.get("reactionDescription", "")
+        }
+
+        anim_files = [f for f in os.listdir(folder) if f.startswith("reaction_anim_") and f.endswith(".usd")]
+        for file in anim_files:
+            local_path = os.path.join(folder, file)
+            success, result = upload_anim_and_update_db(local_path, reaction_id, reaction_id, reaction_summary)
+            if success:
+                carb.log_info(f"✅ Uploaded {file} to Firebase: {result}")
+            else:
+                carb.log_error(f"❌ Upload failed for {file}: {result}")

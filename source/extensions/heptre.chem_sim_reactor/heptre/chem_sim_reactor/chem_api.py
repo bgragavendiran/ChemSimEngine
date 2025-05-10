@@ -6,12 +6,11 @@ import logging
 import os
 import re
 from .Molecular import Atom, Bond, MolecularStructure
-
-import firebase_admin
-from firebase_admin import credentials, db
 import hashlib
 # Load environment variables
 from dotenv import load_dotenv
+from .firebase_utils import get_firebase_reactions_ref, get_firebase_compounds_ref
+from .firebase_utils import start_background_sync
 
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path)
@@ -20,17 +19,12 @@ load_dotenv(dotenv_path)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(BASE_DIR, "firebase-adminsdk.json")
 
-if not firebase_admin._apps:
-    cred = credentials.Certificate(cred_path)
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': "https://vrchemlab-d3f91-default-rtdb.asia-southeast1.firebasedatabase.app/"
-    })
-
-firebase_compounds = db.reference("compounds")
-firebase_reactions = db.reference("reactions")
+firebase_reactions = get_firebase_reactions_ref()
+firebase_compounds = get_firebase_compounds_ref()
 
 # Initialize FastAPI
 app = FastAPI()
+start_background_sync()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 logging.basicConfig(level=logging.INFO)
