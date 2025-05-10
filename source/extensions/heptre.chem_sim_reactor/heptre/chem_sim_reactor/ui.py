@@ -7,13 +7,14 @@ from .chem_api import get_molecule_structure
 from .usd_writer import write_usd_from_reaction
 from pxr import UsdGeom, Sdf
 from typing import Dict
-from .viewport_capture import render_usd_frames, create_gif_from_frames
-from .firebase_utils import upload_anim_and_update_db
-
 import omni.usd
 import omni.timeline
 import omni.kit.viewport.utility as vp_util
 import carb.settings
+import asyncio
+from omni.kit.app import get_app
+from .viewport_capture import run_capture_and_upload
+from pxr import UsdGeom, Gf
 
 EXT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,6 +39,7 @@ def _set_grey_studio_lighting():
     settings.set("/persistent/exts/omni.kit.viewport.menubar.lighting/environmentPreset", "Grey Studio")
 
 
+
 def focus_and_zoom_on_world():
     ctx = omni.usd.get_context()
     stage = ctx.get_stage()
@@ -50,14 +52,14 @@ def focus_and_zoom_on_world():
         carb.log_error("❌ '/World' prim not found or invalid.")
         return
 
-    ctx.clear_selection()
-    ctx.set_selected_prims([world_prim])
+    selection = ctx.get_selection()
+    selection.set_selected_prim_paths(["/World"])
 
-    # Perform viewport focus
-    viewport = vp_util.get_active_viewport()
-    if viewport:
-        carb.log_info("🎯 Zooming camera to focus on /World")
-        viewport.focus_on_selection()
+    import omni.kit.viewport.utility as vp_util
+    vp_util.focus_on_prim("/World")
+    carb.log_info("🎯 Viewport camera focused on /World")
+
+
 
 
 class ChemSimUI:
@@ -109,7 +111,6 @@ class ChemSimUI:
 
             # Zoom and light
             _set_grey_studio_lighting()
-            focus_and_zoom_on_world()
 
             # ✅ Play animation
             timeline = omni.timeline.get_timeline_interface()
@@ -159,20 +160,20 @@ class ChemSimUI:
                 frames_dir = os.path.join(folder, "frames")
                 os.makedirs(frames_dir, exist_ok=True)
 
-                timeline = omni.timeline.get_timeline_interface()
-                timeline.play()
-                render_usd_frames(usd_path, frames_dir, start=0, end=60)
-                create_gif_from_frames(frames_dir, gif_path)
-                timeline.stop()
+                # 🧠 Prepare loop and schedule rendering + upload task
+                loop = get_app().get_async_event_loop()
+                loop.create_task(run_capture_and_upload(
+                    usd_path, frames_dir, gif_path,
+                    folder=json_filename,
+                    summary={
+                        "reaction": reaction_formula,
+                        "reactionDescription": reaction_description
+                    },
+                    start=0,
+                    end=60,
+                    duration=0.1
+                ))
 
-                success, msg = upload_anim_and_update_db(gif_path, json_filename, json_filename, {
-                    "reaction": reaction_formula,
-                    "reactionDescription": reaction_description
-                })
-                if success:
-                    log_info(f"✅ GIF uploaded: {msg}")
-                else:
-                    log_error(f"❌ GIF upload failed: {msg}")
 
             stage.GetRootLayer().Save()
             log_info("[ChemSimUI] ✅ Saved stage after adding UI, Camera, Legend.")

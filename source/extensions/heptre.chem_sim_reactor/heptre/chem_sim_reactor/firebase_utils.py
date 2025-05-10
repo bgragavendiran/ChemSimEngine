@@ -4,7 +4,6 @@ import firebase_admin
 from firebase_admin import credentials, storage, db
 from firebase_admin import delete_app
 import threading
-from .viewport_capture import render_usd_frames, create_gif_from_frames
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(BASE_DIR, "firebase-adminsdk.json")
@@ -74,15 +73,20 @@ def sync_missing_animations():
         for file in os.listdir(folder_path):
             if file.endswith(".usd") and file.startswith("reaction_anim_") and file != expected_file:
                 full_path = os.path.join(folder_path, file)
-                files_to_upload.append((folder, file, full_path))
+                gif_path = full_path.replace(".usd", ".gif")
+                if os.path.exists(gif_path):
+                    files_to_upload.append((folder, file, gif_path))  # ✅ Use existing GIF
+                else:
+                    files_to_upload.append((folder, file, None))      # ❌ No GIF, render required
 
     print(f"📦 Found {len(files_to_upload)} missing animations to upload.")
-    for idx, (folder, file_name, full_path) in enumerate(files_to_upload, start=1):
-        print(f"📄 [{idx}/{len(files_to_upload)}] Uploading: {file_name} → {full_path}")
+    for idx, (folder, file_name, gif_path_or_none) in enumerate(files_to_upload, start=1):
+        print(f"📄 [{idx}/{len(files_to_upload)}] Processing: {file_name}")
         reaction_summary = {
             "reactionName": folder,
             "reactionDescription": f"Auto-synced reaction {folder}"
         }
+
         reaction_json_path = os.path.join(BASE_DIR, "output_json", f"{folder}.json")
         if os.path.exists(reaction_json_path):
             try:
@@ -92,12 +96,17 @@ def sync_missing_animations():
                     reaction_summary["reactionDescription"] = data.get("reactionDescription", f"Reaction: {folder}")
             except Exception as e:
                 print(f"⚠️ Could not read {folder}.json: {e}")
+
         try:
-            frames_dir = os.path.join(os.path.dirname(full_path), "frames")
-            gif_path = full_path.replace(".usd", ".gif")
-            render_usd_frames(full_path, frames_dir)
-            create_gif_from_frames(frames_dir, gif_path)
-            print(f"✅ GIF created: {gif_path}")
+            if gif_path_or_none and os.path.exists(gif_path_or_none):
+                gif_path = gif_path_or_none
+                print(f"✅ Using existing GIF: {gif_path}")
+            else:
+                full_path = os.path.join(ANIM_LOCAL_DIR, folder, file_name)
+                frames_dir = os.path.join(os.path.dirname(full_path), "frames")
+                gif_path = full_path.replace(".usd", ".gif")
+                print(f"✅ GIF created: {gif_path}")
+
             success, msg = upload_anim_and_update_db(gif_path, folder, folder, reaction_summary)
             if success:
                 print(f"✅ Uploaded GIF: {msg}")
