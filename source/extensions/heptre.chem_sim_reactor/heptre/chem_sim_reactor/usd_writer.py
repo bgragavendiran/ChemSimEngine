@@ -11,6 +11,7 @@ BOND_RADIUS = 0.05
 from pxr import Sdf
 import os, pathlib
 
+
 def _prepare_fresh_layer(path_str: str):
     """
     Ensure `Usd.Stage.CreateNew(path_str)` can succeed even when the same
@@ -224,17 +225,20 @@ def generate_usd_file(mol, path):
     carb.log_info(f"✔  {path}")
 
 import uuid  # Add to imports if not present
+import subprocess
+import os
+import sys
+
 def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.json"):
     folder = os.path.join(out_dir, os.path.splitext(source_file_name)[0])
     os.makedirs(folder, exist_ok=True)
 
+    carb.log_info(f"💾 Writing molecular USDs to ➜ {folder}")
+
+    # 1. Write individual reactants/products USD files
     for role in ("reactants", "products"):
         for m in js.get(role, []):
             carb.log_info(f"🔍 Processing {role}: {m.get('name', role)}")
-            atom_ids = [a["id"] for a in m["atoms"]]
-            bond_ids = [(b["from_atom"], b["to_atom"]) for b in m["bonds"]]
-            carb.log_info(f"  🔬 Atoms: {atom_ids}")
-            carb.log_info(f"  🔗 Bonds: {bond_ids}")
 
             try:
                 mol_name = m.get("name") or f"{role}_{uuid.uuid4().hex[:6]}"
@@ -243,34 +247,32 @@ def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.jso
                     [Atom(**a) for a in m["atoms"]],
                     [Bond(**b) for b in m["bonds"]]
                 )
-            except Exception as e:
-                carb.log_error(f"❌ Error creating MolecularStructure: {e}")
-                raise
-
-            try:
                 generate_usd_file(mol, os.path.join(folder, f"{role}_{sanitize_prim_name(mol.name)}.usd"))
             except Exception as e:
-                carb.log_error(f"❌ Failed to generate USD for {mol.name}: {e}")
-                raise
-        carb.log_info(f"Animation build Starting")
-        carb.log_info(f"write_usd_from_reaction called with: {len(js.get('reactants', []))} reactants, {len(js.get('products', []))} products")
-        try:
-            build_reaction_animation(folder)
+                carb.log_error(f"❌ Error processing {role}: {e}")
+                continue
 
-        except Exception as e:
-            carb.log_error(f"⚠️ Animation build failed: {e}")
-        # ✅ Upload animation and write RTDB metadata
-        reaction_id = os.path.basename(folder)
-        reaction_summary = {
-            "reaction": js.get("reaction", ""),
-            "reactionDescription": js.get("reactionDescription", "")
-        }
+    # 2. Build animation and export FBX
+    carb.log_info(f"🎬 Starting animation build for: {folder}")
+    carb.log_info(f"write_usd_from_reaction called with: {len(js.get('reactants', []))} reactants, {len(js.get('products', []))} products")
 
-        anim_files = [f for f in os.listdir(folder) if f.startswith("reaction_anim_") and f.endswith(".usd")]
-        for file in anim_files:
-            local_path = os.path.join(folder, file)
-            success, result = upload_anim_and_update_db(local_path, reaction_id, reaction_id, reaction_summary)
-            if success:
-                carb.log_info(f"✅ Uploaded {file} to Firebase: {result}")
-            else:
-                carb.log_error(f"❌ Upload failed for {file}: {result}")
+    try:
+        usd_path = build_reaction_animation(folder)
+    except Exception as e:
+        carb.log_error(f"⚠️ Animation or FBX export failed: {e}")
+
+    # 3. Upload to Firebase
+    reaction_id = os.path.basename(folder)
+    reaction_summary = {
+        "reaction": js.get("reaction", ""),
+        "reactionDescription": js.get("reactionDescription", "")
+    }
+
+    anim_files = [f for f in os.listdir(folder) if f.startswith("reaction_anim_") and f.endswith((".usd", ".fbx"))]
+    for file in anim_files:
+        local_path = os.path.join(folder, file)
+        success, result = upload_anim_and_update_db(local_path, reaction_id, reaction_id, reaction_summary)
+        if success:
+            carb.log_info(f"✅ Uploaded {file} to Firebase: {result}")
+        else:
+            carb.log_error(f"❌ Upload failed for {file}: {result}")

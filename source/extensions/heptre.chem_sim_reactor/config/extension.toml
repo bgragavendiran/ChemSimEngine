@@ -17,6 +17,9 @@ repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"
 "omni.kit.window.console" = {}
 "omni.kit.window.extensions" = {}
 "omni.kit.window.filepicker" = {}
+"omni.kit.viewport.utility" = {}
+"omni.kit.viewport.menubar.lighting" = {}
+"omni.timeline" = {}
 
 [settings]
 
@@ -24,7 +27,7 @@ repository = "https://github.com/NVIDIA-Omniverse/kit-app-template"
 name = "heptre.chem_sim_reactor"
 
 [python.pip]
-packages = ["openai==0.27.9", "firebase-admin", "python-dotenv","pydantic==1.10.13"]
+packages = ["openai==0.27.9","imageio" , "firebase-admin", "python-dotenv","pydantic==1.10.13"]
 
 
 [documentation]

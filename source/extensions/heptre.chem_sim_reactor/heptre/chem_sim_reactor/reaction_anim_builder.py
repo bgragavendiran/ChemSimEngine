@@ -111,7 +111,9 @@ def build_reaction_animation(folder: str,
         xf.GetVisibilityAttr()   .Set("inherited",  tmix)
 
     stage.GetRootLayer().Save()
-    LOG(f"✅  wrote {stage.GetRootLayer().identifier}")
+    usd_path = str(folder / f"reaction_anim_{timestamp}.usd")
+    LOG(f"✅  wrote {usd_path}")
+    return usd_path
 
 
 # test ---------------------------------------------------------------------
