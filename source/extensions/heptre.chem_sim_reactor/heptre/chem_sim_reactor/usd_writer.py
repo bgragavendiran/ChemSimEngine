@@ -59,7 +59,8 @@ def add_atom(stage, atom, parent, position):
     prim.GetRadiusAttr().Set(ATOM_RADIUS)
     UsdGeom.Xformable(prim).AddTranslateOp().Set(Gf.Vec3f(*position))
     mat = create_material(stage, atom)
-    UsdShade.MaterialBindingAPI(prim.GetPrim()).Bind(mat)
+    mat_api = UsdShade.MaterialBindingAPI.Apply(prim.GetPrim())
+    mat_api.Bind(mat)
 
 
 

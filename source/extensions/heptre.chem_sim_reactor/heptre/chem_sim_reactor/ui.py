@@ -40,6 +40,7 @@ from .viewport_capture import safe_render_usd_frames, create_gif_from_frames
 
 class ChemSimUI:
     def __init__(self):
+        log_info("[ChemSimUI] → Entered __init__")
         self.prompt_input = None
         self.json_model = None
         self.usd_model = None
@@ -53,6 +54,7 @@ class ChemSimUI:
         start_background_sync()
 
     def _render_and_upload(self, usd_path, frames_dir, gif_path, reaction_formula, reaction_description, json_filename):
+        log_info("[ChemSimUI] → Entered _render_and_upload")
         def after_render():
             create_gif_from_frames(frames_dir, gif_path, duration=0.08)
             success, msg = upload_anim_and_update_db(gif_path, json_filename, json_filename, {
@@ -85,6 +87,7 @@ class ChemSimUI:
             log_error(f"[ChemSimUI] ❌ Exception during Convert: {e}")
 
     def _import_usd_file(self):
+        log_info("[ChemSimUI] → Entered _import_usd_file")
         try:
             selected_index = self.usd_file_list.model.get_item_value_model().get_value_as_int()
             all_files = self._get_usd_files()
@@ -156,19 +159,7 @@ class ChemSimUI:
                     usd_path, frames_dir, gif_path,
                     reaction_formula, reaction_description, json_filename
                 )
-
-
-                # ✅ Upload the result
-                success, msg = upload_anim_and_update_db(gif_path, json_filename, json_filename, {
-                    "reaction": reaction_formula,
-                    "reactionDescription": reaction_description
-                })
-                if success:
-                    log_info(f"✅ GIF uploaded: {msg}")
-                else:
-                    log_error(f"❌ GIF upload failed: {msg}")
-
-            stage.GetRootLayer().Save()
+            # stage.GetRootLayer().Save()
             log_info("[ChemSimUI] ✅ Saved stage after adding UI, Camera, Legend.")
         except Exception as e:
             log_error(f"[ChemSimUI] ❌ Error importing USD file: {e}")

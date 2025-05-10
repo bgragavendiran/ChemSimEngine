@@ -106,4 +106,3 @@ def start_background_sync():
         import threading
         thread = threading.Thread(target=sync_missing_animations, daemon=True)
         thread.start()
-    get_app().get_update_event_stream().create_subscription_to_push(lambda e: _sync())

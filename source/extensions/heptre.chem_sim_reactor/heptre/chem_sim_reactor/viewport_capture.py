@@ -74,8 +74,8 @@ def _capture_frame_loop(frames, frame_dir, on_complete):
         return
 
     frame = frames.pop(0)
-    ctx = omni.usd.get_context()
-    ctx.set_time(frame)
+    timeline = omni.timeline.get_timeline_interface()
+    timeline.set_current_time(frame)
     omni.kit.app.get_app().update()
 
     def after_capture():
@@ -86,33 +86,31 @@ def _capture_frame_loop(frames, frame_dir, on_complete):
 
 from omni.kit.app import get_app
 
-def safe_render_usd_frames(usd_path, frame_dir, start=0, end=60, on_complete=None):
-    from .viewport_capture import render_usd_frames
-    def _wrapped():
-        render_usd_frames(usd_path, frame_dir, start=start, end=end, on_complete=on_complete)
-    get_app().get_update_event_stream().create_subscription_to_push(lambda e: _wrapped())
+def safe_render_usd_frames(*args, **kwargs):
+    render_usd_frames(*args, **kwargs)
 
 
 def render_usd_frames(usd_path, frame_dir, start=0, end=60, on_complete=None):
-    ctx = get_context()
+    ctx = omni.usd.get_context()
     ctx.open_stage(usd_path)
     carb.log_info(f"✅ Stage loaded: {usd_path}")
 
-    def after_stage_loaded():
-        set_lighting_grey_studio()
-        setup_camera_and_zoom()
+    # ✅ Force camera & lighting now (not deferred)
+    set_lighting_grey_studio()
+    setup_camera_and_zoom()
 
-        os.makedirs(frame_dir, exist_ok=True)
-        timeline = omni.timeline.get_timeline_interface()
-        timeline.stop()
-        timeline.set_looping(False)
-        timeline.set_current_time(start)
-        timeline.play()
+    os.makedirs(frame_dir, exist_ok=True)
 
-        frames = list(range(start, end + 1))
-        _capture_frame_loop(frames, frame_dir, on_complete)
+    timeline = omni.timeline.get_timeline_interface()
+    timeline.stop()
+    timeline.set_looping(False)
+    timeline.set_current_time(start)
+    timeline.play()
 
-    defer_to_main_thread(after_stage_loaded)
+    frames = list(range(start, end + 1))
+    _capture_frame_loop(frames, frame_dir, on_complete)
+
+
 
 
 def create_gif_from_frames(frame_dir, gif_path, duration=0.1):
