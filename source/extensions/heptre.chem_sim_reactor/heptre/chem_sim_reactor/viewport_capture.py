@@ -121,13 +121,8 @@ async def render_usd_frames(usd_path, start=0, end=60, duration=0.1):
 
 
 
-async def run_capture_and_upload(usd_path, frames_dir, gif_path, folder, summary, start=0, end=60, duration=0.1):
+async def run_capture_and_upload(usd_path,folder, summary, start=0, end=60, duration=0.1):
     try:
         await render_usd_frames(usd_path, start=start, end=end, duration=duration)
-        success, msg = upload_anim_and_update_db(gif_path, folder, folder, summary)
-        if success:
-            carb.log_info(f"✅ Uploaded GIF: {msg}")
-        else:
-            carb.log_error(f"❌ Upload failed: {msg}")
     except Exception as e:
         carb.log_error(f"❌ Error during render/upload: {e}")

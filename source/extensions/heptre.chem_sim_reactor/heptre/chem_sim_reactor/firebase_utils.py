@@ -71,13 +71,8 @@ def sync_missing_animations():
             continue
         expected_file = uploaded_map.get(folder, {}).get("file_name")
         for file in os.listdir(folder_path):
-            if file.endswith(".usd") and file.startswith("reaction_anim_") and file != expected_file:
-                full_path = os.path.join(folder_path, file)
-                gif_path = full_path.replace(".usd", ".gif")
-                if os.path.exists(gif_path):
-                    files_to_upload.append((folder, file, gif_path))  # ✅ Use existing GIF
-                else:
-                    files_to_upload.append((folder, file, None))      # ❌ No GIF, render required
+            if file.endswith(".usdz") and file.startswith("reaction_anim_") and file != expected_file:
+                files_to_upload.append((folder, file, None))      # ❌ No GIF, render required
 
     print(f"📦 Found {len(files_to_upload)} missing animations to upload.")
     for idx, (folder, file_name, gif_path_or_none) in enumerate(files_to_upload, start=1):

@@ -93,6 +93,13 @@ class ChemSimUI:
 
     def _import_usd_file(self):
         try:
+            # 🧹 Clear previous reaction summary (if any)
+            if self.overlay_formula_label:
+                self.overlay_formula_label.text = ""
+            if self.overlay_description_label:
+                self.overlay_description_label.text = ""
+            if self.overlay_process_label:
+                self.overlay_process_label.text = ""
             selected_index = self.usd_file_list.model.get_item_value_model().get_value_as_int()
             all_files = self._get_usd_files()
             if selected_index >= len(all_files):
@@ -155,15 +162,11 @@ class ChemSimUI:
             )
 
             # Play animation and capture
-            if selection.endswith(".usd") and "reaction_anim_" in selection:
+            if selection.endswith(".usdz") and "reaction_anim_" in selection:
                 folder = os.path.join(USD_OUTPUT_DIR, selection.split("\\")[0])
-                gif_path = os.path.join(folder, os.path.basename(selection).replace(".usd", ".gif"))
-                frames_dir = os.path.join(folder, "frames")
-                os.makedirs(frames_dir, exist_ok=True)
-
                 # 🧠 Prepare loop and schedule rendering + upload task
                 asyncio.get_event_loop().create_task(run_capture_and_upload(
-                    usd_path, frames_dir, gif_path,
+                    usd_path,
                     folder=json_filename,
                     summary={
                         "reaction": reaction_formula,
@@ -187,7 +190,7 @@ class ChemSimUI:
             return anims
         for sub in root.iterdir():
             if sub.is_dir():
-                for usd_file in sub.glob("reaction_anim_*.usd"):
+                for usd_file in sub.glob("reaction_anim_*.usdz"):
                     anims.append(str(usd_file.relative_to(root)))
         return sorted(anims)
 

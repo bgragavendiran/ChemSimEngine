@@ -268,11 +268,26 @@ def write_usd_from_reaction(js, out_dir="output", source_file_name="reaction.jso
         "reactionDescription": js.get("reactionDescription", "")
     }
 
-    anim_files = [f for f in os.listdir(folder) if f.startswith("reaction_anim_") and f.endswith((".usd", ".fbx"))]
-    for file in anim_files:
-        local_path = os.path.join(folder, file)
-        success, result = upload_anim_and_update_db(local_path, reaction_id, reaction_id, reaction_summary)
+    anim_files = [
+        f for f in os.listdir(folder)
+        if f.startswith("reaction_anim_") and f.endswith(".usdz")
+    ]
+
+    for file_name in anim_files:
+        local_path = os.path.join(folder, file_name)
+
+        if not file_name.endswith(".usdz"):
+            carb.log_warn(f"⏭️ Skipping non-usdz file: {file_name}")
+            continue
+
+        success, result = upload_anim_and_update_db(
+            local_path=local_path,
+            folder=os.path.basename(folder),  # e.g., 'Ethanol_Combust_reaction'
+            reaction_id=os.path.basename(folder),
+            reaction_summary=reaction_summary
+        )
+
         if success:
-            carb.log_info(f"✅ Uploaded {file} to Firebase: {result}")
+            carb.log_info(f"✅ Uploaded {file_name} to Firebase: {result}")
         else:
-            carb.log_error(f"❌ Upload failed for {file}: {result}")
+            carb.log_error(f"❌ Upload failed for {file_name}: {result}")
