@@ -97,24 +97,6 @@ def sync_missing_animations():
             except Exception as e:
                 print(f"⚠️ Could not read {folder}.json: {e}")
 
-        try:
-            if gif_path_or_none and os.path.exists(gif_path_or_none):
-                gif_path = gif_path_or_none
-                print(f"✅ Using existing GIF: {gif_path}")
-            else:
-                full_path = os.path.join(ANIM_LOCAL_DIR, folder, file_name)
-                frames_dir = os.path.join(os.path.dirname(full_path), "frames")
-                gif_path = full_path.replace(".usd", ".gif")
-                print(f"✅ GIF created: {gif_path}")
-
-            success, msg = upload_anim_and_update_db(gif_path, folder, folder, reaction_summary)
-            if success:
-                print(f"✅ Uploaded GIF: {msg}")
-            else:
-                print(f"❌ Upload failed: {msg}")
-        except Exception as e:
-            print(f"⚠️ GIF rendering or upload failed: {e}")
-
 def start_background_sync():
     thread = threading.Thread(target=sync_missing_animations, daemon=True)
     thread.start()

@@ -272,7 +272,7 @@ class ChemSimUI:
     def _reload_extension(self):
         try:
             if self.overlay_window:
-                self.overlay_window.close()
+                self.overlay_window.destroy()
                 self.overlay_window = None
                 self.overlay_formula_label = None
                 self.overlay_description_label = None

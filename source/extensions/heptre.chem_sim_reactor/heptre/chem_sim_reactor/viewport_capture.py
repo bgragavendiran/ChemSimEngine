@@ -14,25 +14,7 @@ from pxr import UsdGeom, UsdLux, Gf
 from omni.kit.widget.viewport.capture import FileCapture
 import asyncio
 
-async def capture_frame_to_png(image_path: str):
-    viewport = vp_util.get_active_viewport()
-    if not viewport:
-        carb.log_error("❌ No active viewport available.")
-        return False
 
-    try:
-        capture = viewport.schedule_capture(FileCapture(image_path))
-        captured_aovs = await capture.wait_for_result()
-
-        if captured_aovs:
-            carb.log_info(f'📸 AOV "{captured_aovs[0]}" written to "{image_path}"')
-            return True
-        else:
-            carb.log_error(f'❌ No image was written to "{image_path}"')
-            return False
-    except Exception as e:
-        carb.log_error(f"❌ Failed to capture frame: {e}")
-        return False
 
 def set_lighting_grey_studio():
     carb.log_info("🔆 Setting Grey Studio lighting...")
@@ -72,12 +54,57 @@ def add_default_light():
         light.AddTranslateOp().Set(Gf.Vec3f(10.0, 10.0, 10.0))
         carb.log_info("💡 Default distant light added to scene.")
 
-async def render_usd_frames(usd_path, frame_dir, start=0, end=60, duration=0.1):
+
+def set_grey_studio_light_rig():
+    carb.log_info("🔆 Setting Grey Studio Light Rig...")
+
+    stage = omni.usd.get_context().get_stage()
+
+    # Clear old lights
+    for light_path in ["/World/KeyLight", "/World/FillLight", "/World/RimLight", "/World/DomeLight"]:
+        if stage.GetPrimAtPath(light_path).IsValid():
+            stage.RemovePrim(light_path)
+
+    # Dome Light (ambient light)
+    dome_light = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
+    dome_light.CreateIntensityAttr(300.0)
+    dome_light.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
+    dome_light.CreateTextureFileAttr("")  # No HDR texture (pure ambient)
+
+    # Key Light (big softbox)
+    key_light = UsdLux.RectLight.Define(stage, "/World/KeyLight")
+    key_light.CreateIntensityAttr(5000.0)
+    key_light.CreateWidthAttr(5.0)
+    key_light.CreateHeightAttr(5.0)
+    key_light.AddTranslateOp().Set(Gf.Vec3f(5, 5, 5))
+    key_light.AddRotateXYZOp().Set(Gf.Vec3f(-45, 45, 0))
+
+    # Fill Light (weaker softbox)
+    fill_light = UsdLux.RectLight.Define(stage, "/World/FillLight")
+    fill_light.CreateIntensityAttr(2000.0)
+    fill_light.CreateWidthAttr(4.0)
+    fill_light.CreateHeightAttr(4.0)
+    fill_light.AddTranslateOp().Set(Gf.Vec3f(-5, 4, 4))
+    fill_light.AddRotateXYZOp().Set(Gf.Vec3f(-30, -45, 0))
+
+    # Rim Light (backlight)
+    rim_light = UsdLux.RectLight.Define(stage, "/World/RimLight")
+    rim_light.CreateIntensityAttr(3000.0)
+    rim_light.CreateWidthAttr(3.0)
+    rim_light.CreateHeightAttr(3.0)
+    rim_light.AddTranslateOp().Set(Gf.Vec3f(0, 6, -5))
+    rim_light.AddRotateXYZOp().Set(Gf.Vec3f(-90, 0, 0))
+
+    carb.log_info("💡 Grey Studio Light Rig setup complete.")
+
+async def render_usd_frames(usd_path, start=0, end=60, duration=0.1):
     ctx = omni.usd.get_context()
     ctx.open_stage(usd_path)
     stage = ctx.get_stage()  # ✅ this was missing
     add_default_light()
-    set_lighting_grey_studio()
+    # set_lighting_grey_studio()
+    set_grey_studio_light_rig()
+
     cam_path = ensure_camera(stage)
 
     bind_camera_to_viewport(cam_path)
@@ -87,43 +114,16 @@ async def render_usd_frames(usd_path, frame_dir, start=0, end=60, duration=0.1):
     timeline.set_looping(False)
     timeline.set_current_time(start)
     timeline.play()
-
-    os.makedirs(frame_dir, exist_ok=True)
-
     for frame in range(start, end + 1):
         timeline.set_current_time(frame)
-        frame_path = os.path.join(frame_dir, f"frame_{frame:04d}.png")
-
-        os.makedirs(os.path.dirname(frame_path), exist_ok=True)
-        await asyncio.sleep(0.1)  # let renderer stabilize
-
-        success = await capture_frame_to_png(frame_path)
-
-        if not success or not os.path.exists(frame_path):
-            carb.log_error(f"❌ Frame {frame} failed to capture at {frame_path}")
-        else:
-            carb.log_info(f"✅ Frame {frame} saved at {frame_path}")
-
+        carb.log_info(f"✅Ran Frame {frame} ")
     timeline.stop()
-
-
-def create_gif_from_frames(frame_dir, gif_path, duration=0.1):
-    files = sorted(f for f in os.listdir(frame_dir) if f.endswith(".png"))
-    images = [imageio.imread(os.path.join(frame_dir, f)) for f in files]
-
-    if not images:
-        carb.log_error(f"❌ No images found in {frame_dir}. Cannot create GIF.")
-        return
-
-    imageio.mimsave(gif_path, images, duration=duration)
-    carb.log_info(f"✅ GIF saved: {gif_path}")
 
 
 
 async def run_capture_and_upload(usd_path, frames_dir, gif_path, folder, summary, start=0, end=60, duration=0.1):
     try:
-        await render_usd_frames(usd_path, frames_dir, start=start, end=end, duration=duration)
-        create_gif_from_frames(frames_dir, gif_path, duration=duration)
+        await render_usd_frames(usd_path, start=start, end=end, duration=duration)
         success, msg = upload_anim_and_update_db(gif_path, folder, folder, summary)
         if success:
             carb.log_info(f"✅ Uploaded GIF: {msg}")
