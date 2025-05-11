@@ -10,16 +10,23 @@ from PIL import Image
 import numpy as np
 import os
 from .firebase_utils import upload_anim_and_update_db
-
+from pxr import UsdGeom, UsdLux, Gf
 
 def capture_frame_to_png(frame_path):
-    vp = get_active_viewport()
-    texture = vp.get_render_target_color_texture()
-    buffer = texture.download_to_buffer()
-    arr = np.frombuffer(buffer, dtype=np.uint8).reshape((texture.height, texture.width, 4))
-    image = Image.fromarray(arr[:, :, :3])
-    image.save(frame_path)
+    viewport = vp_util.get_active_viewport()
+    if not viewport:
+        carb.log_error("❌ No active viewport for screenshot.")
+        return
 
+    try:
+        omni.kit.viewport.window.screenshot.capture_viewport_to_file_async(
+            viewport,
+            frame_path,
+            resolution=None  # or set (width, height) tuple
+        )
+        carb.log_info(f"📸 Screenshot scheduled to: {frame_path}")
+    except Exception as e:
+        carb.log_error(f"❌ Failed to capture frame: {e}")
 
 def set_lighting_grey_studio():
     carb.log_info("🔆 Setting Grey Studio lighting...")
@@ -28,44 +35,32 @@ def set_lighting_grey_studio():
     )
 
 
-def focus_world():
-    ctx = omni.usd.get_context()
-    stage = ctx.get_stage()
-    if not stage:
-        carb.log_warn("⚠️ No stage available.")
-        return
-    world_prim = stage.GetPrimAtPath("/World")
-    if not world_prim or not world_prim.IsValid():
-        return
-    ctx.set_selected_prims([world_prim])
-    vp_util.get_active_viewport().focus_on_selection()
-
-
 def ensure_camera(stage):
     camera_path = "/World/RenderCam"
     if not stage.GetPrimAtPath(camera_path).IsValid():
         cam = UsdGeom.Camera.Define(stage, camera_path)
-        cam.AddTranslateOp().Set(Gf.Vec3f(8.0, 6.0, 8.0))
-        cam.AddRotateXYZOp().Set(Gf.Vec3f(-30, 45, 0))
+        cam.AddTranslateOp().Set(Gf.Vec3f((61.50000091642141, 59.10000088065863, 56.300000838935375)))
+        cam.AddRotateXYZOp().Set(Gf.Vec3f(-38, 46.400001525878906, -3.5))
         carb.log_info("📷 RenderCam added to stage.")
     return camera_path
 
 def bind_camera_to_viewport(camera_prim_path):
+    viewport = vp_util.get_active_viewport()
+    if not viewport:
+        carb.log_error("❌ No active viewport.")
+        return
+
     try:
-        omni.kit.commands.execute(
-            "ChangeCameraCommand",
-            path=camera_prim_path,
-            camera_type="persp"
-        )
-        carb.log_info(f"🎥 Camera changed to: {camera_prim_path}")
+        viewport.camera_path = camera_prim_path
+        carb.log_info(f"📷 Bound viewport to camera: {camera_prim_path}")
     except Exception as e:
-        carb.log_error(f"❌ Failed to bind camera: {e}")
+        carb.log_error(f"❌ Failed to set viewport camera: {e}")
 
 def add_default_light():
     stage = omni.usd.get_context().get_stage()
     light_path = "/World/DefaultLight"
     if not stage.GetPrimAtPath(light_path):
-        light = UsdGeom.DistantLight.Define(stage, light_path)
+        light = UsdLux.DistantLight.Define(stage, light_path)
         light.CreateIntensityAttr(5000.0)
         light.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
         light.AddTranslateOp().Set(Gf.Vec3f(10.0, 10.0, 10.0))
@@ -74,11 +69,12 @@ def add_default_light():
 def render_usd_frames(usd_path, frame_dir, start=0, end=60, duration=0.1):
     ctx = omni.usd.get_context()
     ctx.open_stage(usd_path)
+    stage = ctx.get_stage()  # ✅ this was missing
     add_default_light()
     set_lighting_grey_studio()
     cam_path = ensure_camera(stage)
+
     bind_camera_to_viewport(cam_path)
-    focus_world()
 
     timeline = omni.timeline.get_timeline_interface()
     timeline.stop()

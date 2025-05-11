@@ -14,7 +14,8 @@ import carb.settings
 import asyncio
 from omni.kit.app import get_app
 from .viewport_capture import run_capture_and_upload
-from pxr import UsdGeom, Gf
+
+import asyncio
 
 EXT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -161,8 +162,7 @@ class ChemSimUI:
                 os.makedirs(frames_dir, exist_ok=True)
 
                 # 🧠 Prepare loop and schedule rendering + upload task
-                loop = get_app().get_async_event_loop()
-                loop.create_task(run_capture_and_upload(
+                asyncio.get_event_loop().create_task(run_capture_and_upload(
                     usd_path, frames_dir, gif_path,
                     folder=json_filename,
                     summary={
