@@ -157,7 +157,7 @@ class ChemSimUI:
             # Play animation and capture
             if selection.endswith(".usd") and "reaction_anim_" in selection:
                 folder = os.path.join(USD_OUTPUT_DIR, selection.split("\\")[0])
-                gif_path = os.path.join(folder, selection.replace(".usd", ".gif"))
+                gif_path = os.path.join(folder, os.path.basename(selection).replace(".usd", ".gif"))
                 frames_dir = os.path.join(folder, "frames")
                 os.makedirs(frames_dir, exist_ok=True)
 
